@@ -1,0 +1,96 @@
+---
+title: 'DATA 621: HW1'
+output:
+  pdf_document: default
+---
+
+
+
+
+# Data Exploration
+
+## Correlations
+
+We can start by plotting a correlation matrix, describing the pearson correlation coefficients between predictors. This will inform us about our dataset and provide insight when model building:
+
+```{r, echo = F, warning = F, message = F}
+
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(reshape2)
+library(knitr)
+
+df.training = read_csv('moneyball-training-data.csv')
+
+mat.correlation = cor(df.training, use = 'complete')
+mat.correlation[upper.tri(mat.correlation)] = NA
+mlt.correlation <- melt(mat.correlation)
+
+
+ggplot(data = mlt.correlation, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 8, hjust = 1), axis.text.y = element_text(size = 8))+
+ coord_fixed()
+```
+
+Both strikeouts by batters (`TEAM_BATTING_SO`) and errors (`TEAM_FIELDING_E`) are negatively correlated with the number of wins, while base hits by batters (`TEAM_BATTING_H`) is positively associated with the total win count.
+
+We can further visualize the correlations against `TARGET_WINS` using scatterplots:
+
+```{r, echo = F, warning = F, message = F}
+
+mlt.training.plt = melt(select(df.training, -c("TARGET_WINS")), id.vars = c("INDEX"))
+mlt.training.plt = merge(mlt.training.plt, select(df.training, c("INDEX", "TARGET_WINS")), by = "INDEX")
+ggplot(data = mlt.training.plt, aes(value, TARGET_WINS)) + geom_point() + facet_wrap(~variable, scales = "free")
+```
+
+## Distributions
+
+We can visualize the variables using histograms to account for non-normal distributions:
+
+```{r, echo = F, warning = F, message = F}
+
+mlt.training = melt(df.training, id.vars = "INDEX")
+ggplot(data = mlt.training, aes(value)) + geom_histogram() + facet_wrap(~variable, scales = "free")
+```
+
+One of the key takeaways here is that strikeouts by batters has a bimodal distribution. Several variables, such as strikeouts by pitchers and walks allowed are skewed right. `TARGET_WINS` (i.e. our outcome of interest) has a normal distribution.
+
+
+
+\newpage
+
+# Appendix with R Code
+
+```{r, eval = F, warning = F, message = F}
+
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(reshape2)
+library(knitr)
+
+df.training = read_csv('moneyball-training-data.csv')
+
+# Correlation
+mat.correlation = cor(df.training, use = 'complete')
+mat.correlation[upper.tri(mat.correlation)] = NA
+mlt.correlation <- melt(mat.correlation)
+
+
+ggplot(data = mlt.correlation, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 8, hjust = 1), axis.text.y = element_text(size = 8))+
+ coord_fixed()
+```
