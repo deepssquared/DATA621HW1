@@ -1,0 +1,68 @@
+---
+title: "project-621"
+author: "Tora Mullings"
+date: '2022-09-13'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+library(tidyverse)
+df.training <- read.csv('moneyball-training-data.csv')
+```
+
+**TODO** Impute missing values with median.
+```{r}
+colSums(is.na(df.training))
+```
+
+Create a model and show the p-values for each estimate.
+```{r}
+lmod <- lm(TARGET_WINS ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+
+```
+
+```{r}
+summary(lmod)
+```
+p. 36
+```{r}
+#nullmod <- lm(Species ~ 1, gala)
+#anova(nullmod, lmod)
+```
+
+p.38 would be very helpful for "Building a Model", part 3.
+My models:
+1.
+TEAM_BATTING_2B and 3B should be added together. It makes sense because the more bases that batters can cover, the more points they can get, the more wins they get. Replace these predictors with this sum.
+
+2. Choose the predictors from the model output with low p-values (<0.05). There are only 2.
+
+3. p. 37: Can one particular predictor be dropped from a model? Choose the predictor with the high p-value. TEAM_BATTING_SO
+
+4. Consult the conditions for linear regression again and show the fitted residual plots, etc to determine which predictors go well with TARGET_WINS. I can try to do a log transformation if the residuals aren't normal? might not be allowed. 
+Use R-squared to see which X,Y are linearly correlated. Also mention Deepika's pearson correlation chart, where you can see the deep color. From there, choose the pairs with the highest correlations. Q-Q plots and fitted residual plots. 
+    Linearity: The relationship between X and the mean of Y is linear.
+    Homoscedasticity: The variance of residual is the same for any value of X.
+    Independence: Observations are independent of each other.
+    Normality: For any fixed value of X, Y is normally distributed.
+    
+    
+### Model 1
+```{r}
+m1 <- lm(TARGET_WINS ~ I(TEAM_BATTING_2B + TEAM_BATTING_3B) + TEAM_BATTING_H
+     + TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO + 
+    TEAM_BASERUN_SB + TEAM_BASERUN_CS + TEAM_BATTING_HBP + TEAM_PITCHING_H + 
+    TEAM_PITCHING_HR + TEAM_PITCHING_BB + TEAM_PITCHING_SO + 
+    TEAM_FIELDING_E + TEAM_FIELDING_DP, data=df.training)
+```
+
+*H~0~* : B~TEAM_BATTING_2B~ = B~TEAM_BATTING_3B~
+
+```{r}
+anova(lmod, m1)
+```
+The p-value of 0.1205 indicates the null hypothesis cannot be rejected. Therefore, it is justifiable to combine these two predictors.
+
+
