@@ -14,10 +14,16 @@ df.training <- read.csv('moneyball-training-data.csv')
 
 **TODO** Impute missing values with median.
 ```{r}
-colSums(is.na(df.training))
+print(colSums(is.na(df.training)))
+# df.training$TEAM_BATTING_SO [is.na(df.training$TEAM_BATTING_SO)] <- mean(df.training$TEAM_BATTING_SO, na.rm = TRUE)
+# df.training$TEAM_BASERUN_SB [is.na(df.training$TEAM_BASERUN_SB)] <- mean(df.training$TEAM_BASERUN_SB, na.rm = TRUE)
+# df.training$TEAM_BASERUN_CS [is.na(df.training$TEAM_BASERUN_CS)] <- mean(df.training$TEAM_BASERUN_CS, na.rm = TRUE)
+# df.training$TEAM_BATTING_HBP [is.na(df.training$TEAM_BATTING_HBP)] <- mean(df.training$TEAM_BATTING_HBP, na.rm = TRUE)
+# df.training$TEAM_PITCHING_SO [is.na(df.training$TEAM_PITCHING_SO)] <- mean(df.training$TEAM_PITCHING_SO, na.rm = TRUE)
+# df.training$TEAM_FIELDING_DP [is.na(df.training$TEAM_FIELDING_DP)] <- mean(df.training$TEAM_FIELDING_DP, na.rm = TRUE)
 ```
 
-Create a model and show the p-values for each estimate.
+Create a model and show the p-values for each estimate. This model includes all the predictors.
 ```{r}
 lmod <- lm(TARGET_WINS ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
 
@@ -64,5 +70,56 @@ m1 <- lm(TARGET_WINS ~ I(TEAM_BATTING_2B + TEAM_BATTING_3B) + TEAM_BATTING_H
 anova(lmod, m1)
 ```
 The p-value of 0.1205 indicates the null hypothesis cannot be rejected. Therefore, it is justifiable to combine these two predictors.
+
+***
+
+### Model 2
+
+```{r}
+m2 <- lm(TARGET_WINS ~ TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+```
+
+*H~0~* : All predictors besides TEAM_FIELDING_E and TEAM_FIELDING_DP equal 0.
+
+```{r}
+anova(lmod, m2)
+```
+The p-value is very small, so we are not justified by keeping only these 2 predictors and discarding the rest.
+
+***
+
+### Model 3
+
+```{r}
+m3 <- lm(TARGET_WINS ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BASERUN_SB+
+           TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+```
+
+*H~0~* : B~TEAM_BATTING_SO~ = 0
+
+```{r}
+anova(lmod, m3)
+```
+
+The p-value is very small, so we are not justified by discarding the TEAM_BATTING_SO predictor despite its apparent insignificance in the original model.
+
+```{r}
+p3 <- ggplot(data = linearmodel, aes(x = .fitted, y = .resid)) +
+geom_point() +
+geom_hline(yintercept = 0, linetype = "dashed") +
+xlab("Fitted values") +
+ylab("Residuals") +
+  ggtitle("Residuals") +
+  theme_minimal()
+
+p4 <- ggplot(data = linearmodel, aes(sample = .resid)) +
+  stat_qq(color="forestgreen", size=2) +
+  stat_qq_line(size=1, alpha=0.5) +
+  theme_minimal() +
+  ggtitle("Q-Q Plot of Residuals")
+```
+
+
+
 
 
