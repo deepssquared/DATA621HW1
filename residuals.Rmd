@@ -1,0 +1,45 @@
+---
+title: "residuals"
+author: "Tora Mullings"
+date: '2022-09-15'
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+df.training <- read.csv('moneyball-training-data.csv')
+```
+
+
+```{r}
+lmod <- lm(TARGET_WINS ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+
+             TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+
+             TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+
+             TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+summary(lmod)
+```
+
+```{r}
+p3 <- ggplot(data = lmod, aes(x = .fitted, y = .resid)) +
+geom_point() +
+geom_hline(yintercept = 0, linetype = "dashed") +
+xlab("Fitted values") +
+ylab("Residuals") +
+  ggtitle("Residuals") +
+  theme_minimal()
+
+
+p3
+```
+
+```{r}
+p4 <- ggplot(data = lmod, aes(sample = .resid)) +
+  stat_qq(color="forestgreen", size=2) +
+  stat_qq_line(size=1, alpha=0.5) +
+  theme_minimal() +
+  ggtitle("Q-Q Plot of Residuals")
+
+p4
+```
+
+
