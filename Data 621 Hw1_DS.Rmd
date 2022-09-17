@@ -1,0 +1,146 @@
+---
+title: "Data621hw1"
+author: "Deepa"
+date: "2022-09-13"
+output: html_document
+---
+
+
+
+```{r}
+library(tidyverse);
+library(Hmisc);
+library (ggplot2);
+library(funModeling);
+```
+
+## Loaded Training dataset from GitHub
+
+
+```{r}
+df.training<- read.csv("https://raw.githubusercontent.com/deepasharma06/Data621-HW1/main/moneyball-training-data.csv")
+head(df.training)
+
+```
+
+## Find missing values for each column
+
+```{r}
+
+##sum(is.na(Train_data$TEAM_BATTING_SO))
+#count total missing values in each column of data frame
+sapply(df.training, function(x) sum(is.na(x)))
+```
+#gives us information about 0's, NA's, variable type, and unique values
+#For each variable it returns: Quantity and percentage of zeros (q_zeros and p_zeros respectevly). Same metrics for NA values (q_NA/p_na), and infinite values (q_inf/p_inf). Last two columns indicates data type and quantity of unique values. This function print and return the results.
+
+```{r}
+df_status(df.training)
+```
+
+##Data Transformation
+
+
+#We impute the missing NA values with the mean using the Hmisc package:
+
+```{r}
+
+df.training$TEAM_BATTING_SO<-impute(df.training$TEAM_BATTING_SO, median)
+df.training$TEAM_BASERUN_SB<-impute(df.training$TEAM_BASERUN_SB, median)
+df.training$TEAM_PITCHING_SO<-impute(df.training$TEAM_PITCHING_SO, median)
+df.training$TEAM_FIELDING_DP<-impute(df.training$TEAM_FIELDING_DP, median)
+df.training$TEAM_BASERUN_CS<-impute(df.training$TEAM_BASERUN_CS, median)
+df.training$TEAM_BATTING_HBP<-impute(df.training$TEAM_BATTING_HBP, median)
+head(df.training)
+
+
+```
+
+# checking to see and make sure there is no missing values
+
+
+```{r}
+print(colSums(is.na(df.training)))
+```
+
+
+### New variables
+
+Created three variables:
+
+team batting on base = team batting base hits + team batting walks
+team pitching allows = team pitching hits allowed + team pitching walks allowed
+BASE_DIFF = team batting on base - team pitching allows
+
+##I think team that is on base more, will have a higher chance of winning.
+
+
+
+```{r}
+df.training$TEAM_BATTING_OB <- df.training$TEAM_BATTING_H + df.training$TEAM_BATTING_BB  # New variable team batting on base
+df.training$TEAM_PITCHING_A <- df.training$TEAM_PITCHING_H + df.training$TEAM_PITCHING_BB # New variable pitching allows
+df.training$BASE_DIFF <- df.training$TEAM_BATTING_OB - df.training$TEAM_PITCHING_A #New variable base diff
+```
+
+#Create a model and show the p-values for each estimate. This model includes all the predictors.
+
+```{r}
+lmod <- lm(TARGET_WINS ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+```
+
+
+
+```{r}
+summary(lmod)
+```
+
+
+#Model 1 with new variable TEAM_BATTING_OB
+```{r}
+m1<-lm(TARGET_WINS ~ TEAM_BATTING_OB+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+summary(m1)
+
+```
+```{r}
+anova(lmod, m1)
+```
+
+
+The p-value of 0.2575 indicates the null hypothesis cannot be rejected. Therefore, it is justifiable to use new predictor TEAM_BATTING_OB.
+
+
+#Model 2  with new variable TEAM_PITCHING_A
+```{r}
+m2<-lm(TARGET_WINS ~ TEAM_PITCHING_A+TEAM_BATTING_H+TEAM_BATTING_BB+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_HR+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+summary(m2)
+
+```
+
+
+```{r}
+anova(lmod, m2)
+```
+The p-value of 0.2552 indicates the null hypothesis cannot be rejected. Therefore, it is justifiable to use new predictor TEAM_PITCHING_A.
+
+
+#Model 3 with new varibale BASE_DIFF
+
+```{r}
+m3<-lm(TARGET_WINS ~ BASE_DIFF+TEAM_BATTING_H+TEAM_PITCHING_H+TEAM_PITCHING_BB+TEAM_BATTING_BB+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_HR+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+summary(m3)
+```
+
+
+
+```{r}
+anova(lmod, m3)
+
+```
+
+The p-value is very small, so we are not justified by keeping new variable "BASE_DIFF" and discarding the Model.
+
+
+```{r}
+
+```
+
