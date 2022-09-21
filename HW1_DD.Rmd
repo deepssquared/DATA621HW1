@@ -6,7 +6,6 @@ output:
 
 
 
-
 # Data Exploration
 
 ## Correlations
@@ -20,6 +19,7 @@ library(ggplot2)
 library(ggthemes)
 library(reshape2)
 library(knitr)
+library(broom)
 
 df.training = read_csv('moneyball-training-data.csv')
 
@@ -50,6 +50,9 @@ mlt.training.plt = merge(mlt.training.plt, select(df.training, c("INDEX", "TARGE
 ggplot(data = mlt.training.plt, aes(value, TARGET_WINS)) + geom_point() + facet_wrap(~variable, scales = "free")
 ```
 
+
+# Data Distribution
+
 ## Distributions
 
 We can visualize the variables using histograms to account for non-normal distributions:
@@ -64,6 +67,152 @@ One of the key takeaways here is that strikeouts by batters has a bimodal distri
 
 
 
+# Basic Model
+
+## Inclued all predictors. 
+
+Create a model and show the p-values for each estimate.
+```{r, echo = F, warning = F, message = F}
+lmod <- lm(TARGET_WINS ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+
+# coef(lmod)
+
+(lmod)   %>%   broom::tidy() %>% kable()
+
+par(mfrow = c(2, 3))
+plot(lmod)
+```
+
+We see that linearity seems to hold reasonably well, as the red line is close to the dashed line. We can also note the heteroskedasticity in the data, as we move to the edges on the x-axis, the spread of the residuals seems to be increasing. Finally, points 1188, 975, and 21340 may be outliers, with large residual values.
+
+
+Let's perform other checks for Normality. We can investigate using a density plot
+
+```{r, echo = F, warning = F, message = F}
+d<-density(lmod[['residuals']])
+plot(d,main='Residual Plot',xlab='Residual value')
+```
+
+Looking at the above density plot, there appears to be some negative skewness on the right, appearing like a fat tail. Let's try an empirical CDF plot:
+
+```{r, echo = F, warning = F, message = F}
+	
+plot(ecdf(lmod[['residuals']]))
+
+```
+
+It's difficult to conclude much with the above plot. Let's try log transformation of data
+
+```{r, echo = F, warning = F, message = F}
+lmodel <- lm(log(TARGET_WINS) ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+  
+
+library(moments)
+
+skewness(lmodel$residuals)
+lmodel %>%   broom::tidy() %>% kable()
+
+par(mfrow = c(2, 3))
+plot(lmodel)
+```
+
+The qq plot looks little better after the transformation. Let check the density plot after transformation
+
+```{r, echo = F, warning = F, message = F}
+ld<-density(lmodel[['residuals']])
+plot(ld,main='Residual Plot',xlab='Residual value')
+```
+
+
+This is slightly better than the previous case, but not by much.
+
+
+# Data Transformation: Model using sqrt transformation
+
+```{r, echo = F, warning = F, message = F}
+l2model <- lm(sqrt(TARGET_WINS) ~ ., df.training)
+  
+l2model  %>%   broom::tidy() %>% kable()
+
+par(mfrow= c(2,2))
+hist(l2model$residuals)
+
+qqnorm(l2model$residuals)
+qqline(l2model$residuals)
+
+#plot(l2model)
+```
+
+
+```{r, echo = F, warning = F, message = F}
+
+library(moments)
+
+skewness(l2model$residuals)
+
+```
+
+
+# Data Transformation: Model using BOXCOX transformation
+
+We can compare this with other model:
+
+```{r, echo = F, warning = F, message = F}
+
+library(MASS)
+
+model0 <- lm(TARGET_WINS ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+
+
+model <- lm(sqrt(TARGET_WINS) ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+             
+y <- df.training$TARGET_WINS
+x <-  df.training$TEAM_BATTING_H + df.training$TEAM_BATTING_2B + df.training$TEAM_BATTING_3B + df.training$TEAM_BATTING_HR + df.training$TEAM_BATTING_BB + df.training$TEAM_BATTING_SO + df.training$TEAM_BASERUN_SB + df.training$TEAM_BASERUN_CS + df.training$TEAM_BATTING_HBP + df.training$TEAM_PITCHING_H + df.training$TEAM_PITCHING_HR + df.training$TEAM_PITCHING_BB + df.training$TEAM_PITCHING_SO + df.training$TEAM_FIELDING_E + df.training$TEAM_FIELDING_DP
+
+#find optimal lambda for Box-Cox transformation 
+bc_model <- boxcox(y ~ x)
+
+(lambda <- bc_model$x[which.max(bc_model$y)])
+
+#fit new linear regression model using the Box-Cox transformation
+new_model <- lm(((y^lambda-1)/lambda) ~ x)
+
+(new_model)   %>%   broom::tidy() %>% kable()
+
+################################################
+
+#define plotting area
+op <- par(pty = "s", mfrow = c(1, 3))
+
+#Q-Q plot for original model
+qqnorm(model0$residuals)
+qqline(model0$residuals)
+
+
+#Q-Q plot for sqrt model
+qqnorm(model$residuals)
+qqline(model$residuals)
+
+#Q-Q plot for Box-Cox transformed model
+qqnorm(new_model$residuals)
+qqline(new_model$residuals)
+
+#display both Q-Q plots
+par(op)
+
+```
+
+### Trying to study model by subsetting the data
+
+```{r, echo = F, warning = F, message = F}
+
+library(MASS)
+
+y1 <- df.training$TARGET_WINS
+x1 <- df.training$TEAM_BATTING_H + df.training$TEAM_BATTING_2B
+```
+
+
 \newpage
 
 # Appendix with R Code
@@ -75,6 +224,7 @@ library(ggplot2)
 library(ggthemes)
 library(reshape2)
 library(knitr)
+library(broom)
 
 df.training = read_csv('moneyball-training-data.csv')
 
@@ -93,4 +243,98 @@ ggplot(data = mlt.correlation, aes(Var2, Var1, fill = value))+
  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
     size = 8, hjust = 1), axis.text.y = element_text(size = 8))+
  coord_fixed()
+```
+
+
+```{r, eval = F, warning = F, message = F}
+lmod <- lm(TARGET_WINS ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+
+# coef(lmod)
+
+(lmod)   %>%   broom::tidy() %>% kable()
+
+par(mfrow = c(2, 3))
+plot(lmod)
+
+d<-density(lmod[['residuals']])
+plot(d,main='Residual Plot',xlab='Residual value')
+
+
+plot(ecdf(lmod[['residuals']]))
+
+lmodel <- lm(log(TARGET_WINS) ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+  
+
+library(moments)
+
+skewness(lmodel$residuals)
+lmodel %>%   broom::tidy() %>% kable()
+
+par(mfrow = c(2, 3))
+plot(lmodel)
+
+ld<-density(lmodel[['residuals']])
+plot(ld,main='Residual Plot',xlab='Residual value')
+
+l2model <- lm(sqrt(TARGET_WINS) ~ ., df.training)
+  
+l2model  %>%   broom::tidy() %>% kable()
+
+par(mfrow= c(2,2))
+hist(l2model$residuals)
+
+qqnorm(l2model$residuals)
+qqline(l2model$residuals)
+
+#plot(l2model)
+
+library(moments)
+
+skewness(l2model$residuals)
+
+library(MASS)
+
+model0 <- lm(TARGET_WINS ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+
+
+model <- lm(sqrt(TARGET_WINS) ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
+             
+y <- df.training$TARGET_WINS
+x <-  df.training$TEAM_BATTING_H + df.training$TEAM_BATTING_2B + df.training$TEAM_BATTING_3B + df.training$TEAM_BATTING_HR + df.training$TEAM_BATTING_BB + df.training$TEAM_BATTING_SO + df.training$TEAM_BASERUN_SB + df.training$TEAM_BASERUN_CS + df.training$TEAM_BATTING_HBP + df.training$TEAM_PITCHING_H + df.training$TEAM_PITCHING_HR + df.training$TEAM_PITCHING_BB + df.training$TEAM_PITCHING_SO + df.training$TEAM_FIELDING_E + df.training$TEAM_FIELDING_DP
+
+#find optimal lambda for Box-Cox transformation 
+bc_model <- boxcox(y ~ x)
+
+(lambda <- bc_model$x[which.max(bc_model$y)])
+
+#fit new linear regression model using the Box-Cox transformation
+new_model <- lm(((y^lambda-1)/lambda) ~ x)
+
+(new_model)   %>%   broom::tidy() %>% kable()
+
+################################################
+
+#define plotting area
+op <- par(pty = "s", mfrow = c(1, 3))
+
+#Q-Q plot for original model
+qqnorm(model0$residuals)
+qqline(model0$residuals)
+
+
+#Q-Q plot for sqrt model
+qqnorm(model$residuals)
+qqline(model$residuals)
+
+#Q-Q plot for Box-Cox transformed model
+qqnorm(new_model$residuals)
+qqline(new_model$residuals)
+
+#display both Q-Q plots
+par(op)
+
+library(MASS)
+
+y1 <- df.training$TARGET_WINS
+x1 <- df.training$TEAM_BATTING_H + df.training$TEAM_BATTING_2B
 ```
