@@ -1,6 +1,8 @@
 ---
 title: 'DATA 621: HW1'
 output:
+  html_document:
+    df_print: paged
   pdf_document: default
 ---
 
@@ -246,6 +248,8 @@ ggplot(data = mlt.correlation, aes(Var2, Var1, fill = value))+
 ```
 
 
+
+
 ```{r, eval = F, warning = F, message = F}
 lmod <- lm(TARGET_WINS ~ TEAM_BATTING_H+TEAM_BATTING_2B+TEAM_BATTING_3B+TEAM_BATTING_HR+TEAM_BATTING_BB+TEAM_BATTING_SO+TEAM_BASERUN_SB+TEAM_BASERUN_CS+TEAM_BATTING_HBP+TEAM_PITCHING_H+TEAM_PITCHING_HR+TEAM_PITCHING_BB+TEAM_PITCHING_SO+TEAM_FIELDING_E+TEAM_FIELDING_DP, df.training)
 
@@ -338,3 +342,74 @@ library(MASS)
 y1 <- df.training$TARGET_WINS
 x1 <- df.training$TEAM_BATTING_H + df.training$TEAM_BATTING_2B
 ```
+
+## DATA PREPARATION
+
+
+```{r}
+library(tidyverse);
+library(Hmisc);
+library (ggplot2);
+library(funModeling);
+```
+
+## Loaded Training dataset from GitHub
+
+
+```{r}
+df.training<- read.csv("https://raw.githubusercontent.com/deepasharma06/Data621-HW1/main/moneyball-training-data.csv")
+head(df.training)
+
+```
+
+## Find missing values for each column
+## we can see TEAM_FIELDING_E has hightest missing and followed by TEAM_PITCHING_SO
+
+```{r}
+
+##sum(is.na(Train_data$TEAM_BATTING_SO))
+#count total missing values in each column of data frame
+sapply(df.training, function(x) sum(is.na(x)))
+```
+
+
+## We impute the missing NA values with the mean using the Hmisc package:
+
+```{r}
+
+df.training$TEAM_BATTING_SO<-impute(df.training$TEAM_BATTING_SO, mean)
+df.training$TEAM_BASERUN_SB<-impute(df.training$TEAM_BASERUN_SB, mean)
+df.training$TEAM_PITCHING_SO<-impute(df.training$TEAM_PITCHING_SO, mean)
+df.training$TEAM_FIELDING_DP<-impute(df.training$TEAM_FIELDING_DP, mean)
+df.training$TEAM_BASERUN_CS<-impute(df.training$TEAM_BASERUN_CS, median)
+df.training$TEAM_BATTING_HBP<-impute(df.training$TEAM_BATTING_HBP, mean)
+head(df.training)
+
+```
+
+## Checking to make sure there are no missing values
+
+
+```{r}
+print(colSums(is.na(df.training)))
+```
+
+
+## New variables can be created using existing variables if needed in Modeling
+
+team batting on base = team batting base hits + team batting walks
+team pitching allows = team pitching hits allowed + team pitching walks allowed
+BASE_DIFF = team batting on base - team pitching allows
+
+
+
+```{r}
+df.training$TEAM_BATTING_OB <- df.training$TEAM_BATTING_H + df.training$TEAM_BATTING_BB  # New variable team batting on base
+df.training$TEAM_PITCHING_A <- df.training$TEAM_PITCHING_H + df.training$TEAM_PITCHING_BB # New variable pitching allows
+df.training$BASE_DIFF <- df.training$TEAM_BATTING_OB - df.training$TEAM_PITCHING_A #New variable base diff
+head(df.training)
+```
+
+
+
+
